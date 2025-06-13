@@ -4,11 +4,12 @@ import os
 from modules._constants import _project_dir
 from modules.NN_evaluate import evaluate
 from modules.utilities_spectra import collect_all_models, normalise_spectra
+from modules.collect_data import resave_ASPECT_transmission
 from scipy.interpolate import interp1d
 
 
 # 1. Load spectra file
-csv_path = os.path.join(_project_dir, "pixel_reflectances_4-pixel_binning_csv", "600w_exposures_2500-10000-10000_pixel_reflectances(4-pixel_binning).csv")
+csv_path = os.path.join(_project_dir, "test_data", "pixel_reflectances_4-pixel_binning_csv", "600w_exposures_2500-10000-10000_pixel_reflectances(4-pixel_binning).csv")
 df = pd.read_csv(csv_path, sep=" ", header=None)
 
 # 2. Extract wavelengths and spectra
@@ -21,17 +22,17 @@ spectra_normalized = normalise_spectra(
     wvl_norm_nm=1539.0
 )
 
-# model_subdir = "composition/ASPECT-vis-nir1-nir2-1539"   # Composition
-model_subdir = "taxonomy/ASPECT-vis-nir1-nir2-1539"   # Taxonomy
+model_subdir = "composition/ASPECT-vis-nir1-nir2-1539"   # Composition
+# model_subdir = "taxonomy/ASPECT-vis-nir1-nir2-1539"   # Taxonomy
 # dat = os.path.join(_project_dir, "test_data", "test.npz")
 
 model_name = ""
 model_names = collect_all_models(prefix=model_name, subfolder_model=model_subdir, full_path=True)
 
-predictions = evaluate(model_names, spectra_normalized)
+# predictions = evaluate(model_names, spectra_normalized)
 
-print(predictions)
-formatted = np.round(predictions * 100, 1)
+# print(predictions)
+# formatted = np.round(predictions * 100, 1)
 
 # # Print nicely (tab-separated, one row per spectrum if multiple)
 # for row in formatted:
@@ -194,3 +195,8 @@ def csv_to_npz_raw(csv_path, output_npz_path):
 # print(spectrum)
 # print()
 # print(data)
+
+def create_aspect_transmission():
+    resave_ASPECT_transmission()
+
+create_aspect_transmission()

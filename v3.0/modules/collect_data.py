@@ -1,19 +1,3 @@
-from os import environ, path
-environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-from urllib.request import urlopen
-
-import numpy as np
-import pandas as pd
-from copy import deepcopy
-from scipy.interpolate import interp1d
-from itertools import product
-from typing import Literal
-
-# import matplotlib.pyplot as plt
-# import pywavefront
-# from sklearn.metrics import pairwise_distances
-
 from modules.asteroid_spectra_averaging import dlat, dlon
 from modules.NN_data_grids import data_grids
 
@@ -21,7 +5,7 @@ from modules.utilities_spectra import denoise_and_norm, save_data, combine_files
 from modules.utilities_spectra import join_data, load_npz, load_xlsx, load_txt, load_h5, normalise_spectra
 from modules.utilities_spectra import collect_all_models, remove_jumps_in_spectra, match_spectra
 from modules.utilities import flatten_list, stack, my_mv, check_dir, safe_arange, normalise_in_rows, find_all
-from modules.utilities import is_empty, remove_outliers, find_outliers, gimme_kind, safe_extrap1d
+from modules.utilities import is_empty, remove_outliers, find_outliers, gimme_kind, safe_extrap1d, my_argmax
 
 from modules.NN_config_composition import mineral_names, endmember_names, mineral_names_short
 
@@ -36,6 +20,20 @@ from modules._constants import _spectra_name, _wavelengths_name, _label_name, _c
 from modules.NN_config_composition import minerals_used, endmembers_used, comp_model_setup
 from modules.NN_config_taxonomy import classes
 from modules._constants import _num_eps
+
+from urllib.request import urlopen
+from os import path
+import numpy as np
+import pandas as pd
+from scipy.stats import norm
+from copy import deepcopy
+from scipy.interpolate import interp1d
+from itertools import product
+from typing import Literal
+
+# import matplotlib.pyplot as plt
+# import pywavefront
+# from sklearn.metrics import pairwise_distances
 
 
 def collect_data_RELAB(start_line_number: tuple[int, ...] | int, end_line_number: tuple[int, ...] | int | None = None,
@@ -1145,8 +1143,18 @@ def resave_Itokawa_Eros_results(used_minerals: np.ndarray | None = None,
 def resave_HyperScout_transmission() -> None:
     print("Re-saving HyperScout's transmission...")
 
+    """
     filename = path.join(_path_data, "HyperScout", "HS-H_transmission.xlsx")
     transmissions = load_xlsx(filename, sheet_name="Sheet1").to_numpy()
+
+    wavelengths, transmissions = transmissions[:, 0], np.transpose(transmissions[:, 1:])
+
+    mask = 665. <= wavelengths  # to remove additional peaks (done with broadband filter??)
+    wavelengths, transmissions = wavelengths[mask], transmissions[:, mask]
+    """
+
+    filename = path.join(_path_data, "HyperScout", "telescope-level-sensor-average-band-response-prc.csv")
+    transmissions = load_txt(filename, header=None, sep=" ").to_numpy()
 
     wavelengths, transmissions = transmissions[:, 0], np.transpose(transmissions[:, 1:])
 
@@ -1154,10 +1162,62 @@ def resave_HyperScout_transmission() -> None:
     idx = np.argsort(wavelengths)
     wavelengths, transmissions = wavelengths[idx], transmissions[:, idx]
 
-    transmissions = {"wavelengths": wavelengths,
-                     "transmissions": transmissions}
+    wvl_central = np.array([my_argmax(wavelengths, transm, n_points=2, fit_method="ransac") for transm in transmissions])
+
+    # sort transmissions
+    idx = np.argsort(wvl_central)
+    wvl_central, transmissions = wvl_central[idx], transmissions[idx]
+
+    transmissions = {"wavelengths": wavelengths.ravel(),
+                     "transmissions": transmissions,
+                     "central_wavelengths": wvl_central.ravel()}
 
     filename = path.join(_path_data, "HyperScout", f"HS{_sep_in}H{_sep_out}transmission.npz")
+
+    check_dir(filename)
+    with open(filename, "wb") as f:
+        np.savez_compressed(f, **transmissions)
+
+
+def resave_ASPECT_transmission() -> None:
+    print("Re-saving ASPECT's transmission...")
+
+    filename = path.join(_path_data, "ASPECT", "REF_MEAS_upd_wl.xlsx")
+    wavelengths = load_xlsx(filename, sheet_name="600W, 10000|2500, LO", skiprows=2)["wl"].to_numpy()
+    borders = np.where(~np.isfinite(wavelengths))[0]
+    wvl_vis = wavelengths[borders[0] + 1:borders[1]]
+    wvl_nir1 = wavelengths[borders[1] + 1:borders[2]]
+    wvl_nir2 = wavelengths[borders[2] + 1:]
+    wvl_swir = safe_arange(1650., 2500., step=30., endpoint=True)
+
+    fwhm_to_sigma = 1. / np.sqrt(8. * np.log(2.))
+    sigma_vis = np.polyval(np.polyfit([np.min(wvl_vis), np.max(wvl_vis)], (20., 20.), 1), wvl_vis) * fwhm_to_sigma
+    sigma_nir1 = np.polyval(np.polyfit([np.min(wvl_nir1), np.max(wvl_nir2)], (40., 27.), 1), wvl_nir1) * fwhm_to_sigma
+    sigma_nir2 = np.polyval(np.polyfit([np.min(wvl_nir1), np.max(wvl_nir2)], (40., 27.), 1), wvl_nir2) * fwhm_to_sigma
+    sigma_swir = np.polyval(np.polyfit([np.min(wvl_swir), np.max(wvl_swir)], (45., 45.), 1), wvl_swir) * fwhm_to_sigma
+
+    wvl_transmission = safe_arange(450., 2600., 5., endpoint=True).reshape(-1, 1)
+
+    vis = np.transpose(norm.pdf(wvl_transmission, loc=wvl_vis, scale=sigma_vis))
+    wvl_central_vis = np.array([my_argmax(wvl_transmission.ravel(), transm, n_points=2, fit_method="ransac") for transm in vis])
+
+    nir1 = np.transpose(norm.pdf(wvl_transmission, loc=wvl_nir1, scale=sigma_nir1))
+    wvl_central_nir1 = np.array([my_argmax(wvl_transmission.ravel(), transm, n_points=2, fit_method="ransac") for transm in nir1])
+
+    nir2 = np.transpose(norm.pdf(wvl_transmission, loc=wvl_nir2, scale=sigma_nir2))
+    wvl_central_nir2 = np.array([my_argmax(wvl_transmission.ravel(), transm, n_points=2, fit_method="ransac") for transm in nir2])
+
+    swir = np.transpose(norm.pdf(wvl_transmission, loc=wvl_swir, scale=sigma_swir))
+    wvl_central_swir = np.array([my_argmax(wvl_transmission.ravel(), transm, n_points=2, fit_method="ransac") for transm in swir])
+
+    transmissions = {"wavelengths": wvl_transmission.ravel(),
+                     "vis": {"transmissions": vis, "central_wavelengths": wvl_central_vis.ravel()},
+                     "nir1": {"transmissions": nir1, "central_wavelengths": wvl_central_nir1.ravel()},
+                     "nir2": {"transmissions": nir2, "central_wavelengths": wvl_central_nir2.ravel()},
+                     "swir": {"transmissions": swir, "central_wavelengths": wvl_central_swir.ravel()}
+                     }
+
+    filename = path.join(_path_data, "ASPECT", f"ASPECT{_sep_out}transmission.npz")
 
     check_dir(filename)
     with open(filename, "wb") as f:
