@@ -4,7 +4,8 @@ from os import path
 
 # Base directory of the project (do not use a relative path if you create files from the "modules" folder)
 # _project_dir = "/home/dakorda/Python/NN"
-_project_dir = "C:\\Users\\dkord\\python\\NN"
+#_project_dir = "C:\\Users\\dkord\\python\\NN"
+_project_dir = "/Users/valtterimj/Downloads/Työ/Aalto/Hera/Pipeline/asteroid-spectra/v3.0"
 
 # subdirs in _project_dir (useful for backup)
 _subdirs = {"modules": "modules",
