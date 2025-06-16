@@ -1,7 +1,7 @@
 from modules.utilities import normalise_in_rows, normalise_array, stack, safe_arange, my_polyfit, is_empty, gimme_kind
 
 from modules.utilities_spectra import gimme_indices, used_indices, normalise_spectra, if_no_test_data
-from modules.utilities_spectra import join_data, load_npz, apply_transmission, apply_transmission_OLD
+from modules.utilities_spectra import join_data, load_npz, apply_transmission #,apply_transmission_OLD
 
 from modules.NN_data_grids import normalise_spectrum_at_wvl
 
@@ -509,8 +509,8 @@ def apply_aspect_filter_OLD(wvl_data: np.ndarray, x_data: np.ndarray,
     gauss = np.transpose(norm.pdf(np.reshape(wvl_data, (len(wvl_data), 1)), loc=wvl_new, scale=sigma_new))
     gauss = normalise_in_rows(gauss)
 
-    wvl_new, filtered_data = apply_transmission_OLD(spectra=x_data, transmission=gauss, wavelengths=wvl_data,
-                                                    wvl_cen_method="argmax")
+    wvl_new, filtered_data = apply_transmission(spectra=x_data, transmission=gauss, wavelengths=wvl_data,
+                                                    wvl_cen_method="argmax") #OLD
 
     if wvl_norm == "adaptive":
         wvl_norm = normalise_spectrum_at_wvl(wvl_new)
@@ -578,11 +578,10 @@ def apply_transmission_filter(instrument: str, wvl_data: np.ndarray, x_data: np.
     mask = trapezoid(y=transmissions, x=wvl_transmissions) / areas >= 0.5
     transmissions = transmissions[mask]
     """
-
     x_data = interp1d(wvl_data, x_data, kind=gimme_kind(wvl_data))(wvl_transmissions)
     x_data = np.clip(x_data, a_min=0., a_max=None)  # Just in case
 
-    filtered_data = apply_transmission(spectra=x_data, transmission=transmissions)
+    filtered_data = apply_transmission(spectra=x_data, wavelengths=wvl_data, transmission=transmissions)
 
     if "swir" in instrument:
         print("ASPECT SWIR: Cutting the last three wavelengths that are not well-covered by the prepared data.")
@@ -593,7 +592,8 @@ def apply_transmission_filter(instrument: str, wvl_data: np.ndarray, x_data: np.
         wvl_norm = normalise_spectrum_at_wvl(wvl_central)
 
     if wvl_norm is not None:
-        filtered_data = normalise_spectra(filtered_data, wvl_central, wvl_norm_nm=wvl_norm)
+        wl, spectra = filtered_data
+        filtered_data = normalise_spectra(spectra, wl, wvl_norm_nm=wvl_norm)
 
     return np.array(wvl_central, dtype=_wp), np.array(filtered_data, dtype=_wp)
 

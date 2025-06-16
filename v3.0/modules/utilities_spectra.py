@@ -259,9 +259,11 @@ def normalise_spectra(data: np.ndarray, wavelength: np.ndarray, wvl_norm_nm: flo
 
     if np.ndim(data) == 1:
         data = np.reshape(data, (1, len(data)))
+    
 
     if wvl_norm_nm in wavelength:
         v_norm = data[:, wavelength == wvl_norm_nm]
+
 
     elif on_pixel:
         v_norm = data[:, argnearest(wavelength, wvl_norm_nm)]

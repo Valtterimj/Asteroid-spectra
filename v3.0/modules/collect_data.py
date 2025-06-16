@@ -1183,7 +1183,8 @@ def resave_ASPECT_transmission() -> None:
     print("Re-saving ASPECT's transmission...")
 
     filename = path.join(_path_data, "ASPECT", "REF_MEAS_upd_wl.xlsx")
-    wavelengths = load_xlsx(filename, sheet_name="600W, 10000|2500, LO", skiprows=2)["wl"].to_numpy()
+    # wavelengths = load_xlsx(filename, sheet_name="600W, 10000|2500, LO", skiprows=2)["wl"].to_numpy()
+    wavelengths = load_xlsx(filename, sheet_name="ASPECT default wl", skiprows=2)["wl"].to_numpy()
     borders = np.where(~np.isfinite(wavelengths))[0]
     wvl_vis = wavelengths[borders[0] + 1:borders[1]]
     wvl_nir1 = wavelengths[borders[1] + 1:borders[2]]

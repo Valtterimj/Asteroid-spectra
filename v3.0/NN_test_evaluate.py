@@ -196,7 +196,64 @@ def csv_to_npz_raw(csv_path, output_npz_path):
 # print()
 # print(data)
 
+def load_npz(filepath: str) -> dict:
+    """
+    Load data from a .npz file and return it as a dictionary.
+    
+    Parameters:
+        filepath (str): Path to the .npz file.
+    
+    Returns:
+        dict: A dictionary where keys are variable names and values are NumPy arrays.
+    """
+    try:
+        with np.load(filepath, allow_pickle=True) as data:
+            return {key: data[key] for key in data.files}
+    except Exception as e:
+        print(f"Error loading {filepath}: {e}")
+        return {}
+    
+def read_npz():
+    data_dict = load_npz(os.path.join(_project_dir, 'datasets/ASPECT/ASPECT_transmission.npz'))
+
+    # List all arrays in the file
+    print("Keys:", list(data_dict.keys()))
+
+    if "wavelengths" in data_dict:
+        wl = data_dict["wavelengths"]
+        print(wl)
+    if "vis" in data_dict:
+        vis = data_dict["vis"]
+        print(vis)
+    if "nir1" in data_dict:
+        nir1 = data_dict["nir2"]
+        print(nir1)
+    if "nir2" in data_dict:
+        nir2 = data_dict["nir2"]
+        print(nir2)
+    if "swir" in data_dict:
+        swir = data_dict["swir"]
+        print(swir)
+
 def create_aspect_transmission():
     resave_ASPECT_transmission()
 
 create_aspect_transmission()
+
+def model_spects():
+    from modules.utilities_spectra import load_keras_model, _path_model
+    from os import path
+    model_filename = path.join(_path_model, "composition", "ASPECT-vis-nir1-nir2-1539-NEW",
+                            "CNN_ASPECT-vis-nir1-nir2-1539_1110-11-110-111-000_20250616085829.h5")
+    model = load_keras_model(model_filename)  # to read the model
+    import ast
+    import h5py
+    # to read the metadata
+    with h5py.File(model_filename, "r") as f:
+        parameters = ast.literal_eval(f.attrs["params"])  # to convert string "{key: value}" to dict {key: value}
+        layer_names = f.attrs["layer_names"]  # names of layers; now only general info visible also using model.summary(). I use this for the ongoing project because I only save weights, not the whole model to keep it more general; you can ignore the layer names here
+    wavelengths = parameters["wavelengths"] #and many others are there (insttument, normalisation wavelength, hyperparameters)
+    print(f'wavelengths: {wavelengths}')
+    print(f'len of wavelengths: {len(wavelengths)}')
+
+# model_spects()
