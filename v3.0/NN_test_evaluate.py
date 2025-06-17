@@ -238,13 +238,13 @@ def read_npz():
 def create_aspect_transmission():
     resave_ASPECT_transmission()
 
-create_aspect_transmission()
+# create_aspect_transmission()
 
 def model_spects():
     from modules.utilities_spectra import load_keras_model, _path_model
     from os import path
-    model_filename = path.join(_path_model, "composition", "ASPECT-vis-nir1-nir2-1539-NEW",
-                            "CNN_ASPECT-vis-nir1-nir2-1539_1110-11-110-111-000_20250616085829.h5")
+    model_filename = path.join(_path_model, "composition", "ASPECT_default-vis-nir1-nir2-1539",
+                            "CNN_ASPECT-vis-nir1-nir2-1539_1110-11-110-111-000_20250617062058.h5")
     model = load_keras_model(model_filename)  # to read the model
     import ast
     import h5py
@@ -256,4 +256,4 @@ def model_spects():
     print(f'wavelengths: {wavelengths}')
     print(f'len of wavelengths: {len(wavelengths)}')
 
-# model_spects()
+model_spects()
